@@ -1,1 +1,176 @@
+name: Build APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Create Android project
+        run: |
+          mkdir -p app/src/main/java/com/messiocristiano
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-hdpi
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "Messi-or-cristiano"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.messiocristiano'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.messiocristiano'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="Messi or Cristiano">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          mkdir -p app/src/main/res/values
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#111111</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/java/com/messiocristiano/MainActivity.java <<'EOF'
+          package com.messiocristiano;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.view.Gravity;
+          import android.widget.*;
+
+          public class MainActivity extends Activity {
+              int score = 0;
+
+              @Override
+              public void onCreate(Bundle b) {
+                  super.onCreate(b);
+
+                  LinearLayout layout = new LinearLayout(this);
+                  layout.setOrientation(LinearLayout.VERTICAL);
+                  layout.setGravity(Gravity.CENTER);
+                  layout.setPadding(40,40,40,40);
+                  layout.setBackgroundColor(Color.rgb(15,15,18));
+
+                  TextView title = new TextView(this);
+                  title.setText("⚽ MESSI OR CRISTIANO ⚽");
+                  title.setTextColor(Color.WHITE);
+                  title.setTextSize(27);
+                  title.setGravity(Gravity.CENTER);
+                  layout.addView(title);
+
+                  TextView question = new TextView(this);
+                  question.setText("\\nمين الأفضل؟\\n\\nاختار لاعبك المفضل");
+                  question.setTextColor(Color.WHITE);
+                  question.setTextSize(22);
+                  question.setGravity(Gravity.CENTER);
+                  layout.addView(question);
+
+                  Button messi = new Button(this);
+                  messi.setText("ليونيل ميسي");
+                  layout.addView(messi);
+
+                  Button cristiano = new Button(this);
+                  cristiano.setText("كريستيانو رونالدو");
+                  layout.addView(cristiano);
+
+                  TextView result = new TextView(this);
+                  result.setText("\\nاختار واحدًا للبدء!");
+                  result.setTextColor(Color.WHITE);
+                  result.setTextSize(20);
+                  result.setGravity(Gravity.CENTER);
+                  layout.addView(result);
+
+                  messi.setOnClickListener(v -> {
+                      score++;
+                      result.setText("🔥 اخترت ميسي!\\nالنقاط: " + score);
+                  });
+
+                  cristiano.setOnClickListener(v -> {
+                      score++;
+                      result.setText("🔥 اخترت كريستيانو!\\nالنقاط: " + score);
+                  });
+
+                  setContentView(layout);
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          gradle wrapper --gradle-version 8.7
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Messi-or-Cristiano-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
